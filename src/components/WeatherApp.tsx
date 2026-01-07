@@ -11,7 +11,6 @@ import { TemperatureToggle } from './TemperatureToggle';
 import { LoadingState } from './LoadingState';
 import { ErrorState } from './ErrorState';
 import { SavedLocations } from './SavedLocations';
-import { DemoBanner } from './DemoBanner';
 import { cn } from '@/lib/utils';
 
 export const WeatherApp = () => {
@@ -30,7 +29,7 @@ export const WeatherApp = () => {
     setLocation,
     savedLocations,
     removeLocation,
-    isDemo,
+    reverseGeocode,
   } = useWeather();
 
   // Determine background gradient based on weather
@@ -74,25 +73,16 @@ export const WeatherApp = () => {
             const { latitude, longitude } = position.coords;
             
             // Reverse geocode to get location name
-            try {
-              const response = await fetch(
-                `https://api.openweathermap.org/geo/1.0/reverse?lat=${latitude}&lon=${longitude}&limit=1&appid=demo`
-              );
-              if (response.ok) {
-                const [loc] = await response.json();
-                if (loc) {
-                  const newLocation: Location = {
-                    name: loc.name,
-                    lat: latitude,
-                    lon: longitude,
-                    country: loc.country,
-                    state: loc.state,
-                  };
-                  setLocation(newLocation);
-                }
-              }
-            } catch {
-              // Silently fail, will use coordinates
+            const loc = await reverseGeocode(latitude, longitude);
+            if (loc) {
+              setLocation(loc);
+            } else {
+              setLocation({
+                name: 'Current Location',
+                lat: latitude,
+                lon: longitude,
+                country: '',
+              });
             }
             
             fetchWeather(latitude, longitude);
@@ -138,32 +128,16 @@ export const WeatherApp = () => {
         async (position) => {
           const { latitude, longitude } = position.coords;
           
-          try {
-            const response = await fetch(
-              `https://api.openweathermap.org/geo/1.0/reverse?lat=${latitude}&lon=${longitude}&limit=1&appid=demo`
-            );
-            if (response.ok) {
-              const [loc] = await response.json();
-              if (loc) {
-                const newLocation: Location = {
-                  name: loc.name,
-                  lat: latitude,
-                  lon: longitude,
-                  country: loc.country,
-                  state: loc.state,
-                };
-                setLocation(newLocation);
-              }
-            }
-          } catch {
-            // Use coordinates without name
-            const newLocation: Location = {
+          const loc = await reverseGeocode(latitude, longitude);
+          if (loc) {
+            setLocation(loc);
+          } else {
+            setLocation({
               name: 'Current Location',
               lat: latitude,
               lon: longitude,
               country: '',
-            };
-            setLocation(newLocation);
+            });
           }
           
           fetchWeather(latitude, longitude);
@@ -173,7 +147,7 @@ export const WeatherApp = () => {
         }
       );
     }
-  }, [setLocation, fetchWeather]);
+  }, [setLocation, fetchWeather, reverseGeocode]);
 
   const handleRetry = useCallback(() => {
     if (location) {
@@ -199,9 +173,6 @@ export const WeatherApp = () => {
           />
           <TemperatureToggle unit={unit} onChange={setUnit} />
         </header>
-
-        {/* Demo Banner */}
-        {isDemo && <DemoBanner />}
 
         {/* Content */}
         {isLoading && !weatherData ? (
