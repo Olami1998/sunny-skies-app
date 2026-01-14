@@ -11,6 +11,7 @@ import { TemperatureToggle } from './TemperatureToggle';
 import { LoadingState } from './LoadingState';
 import { ErrorState } from './ErrorState';
 import { SavedLocations } from './SavedLocations';
+import { WeatherAlerts } from './WeatherAlerts';
 import { cn } from '@/lib/utils';
 
 export const WeatherApp = () => {
@@ -181,6 +182,13 @@ export const WeatherApp = () => {
           <ErrorState message={error} onRetry={handleRetry} />
         ) : weatherData && location ? (
           <main className="space-y-8">
+            {/* Weather Alerts */}
+            <WeatherAlerts
+              current={weatherData.current}
+              daily={weatherData.daily}
+              unit={unit}
+            />
+
             {/* Current Weather */}
             <CurrentWeather
               weather={weatherData.current}
