@@ -1,21 +1,22 @@
 import { CurrentWeather, DailyWeather, TemperatureUnit } from '@/types/weather';
-import { formatTime, getWindDirection, getUVIndexLevel } from '@/utils/weatherUtils';
-import { 
-  Sunrise, 
-  Sunset, 
-  Wind, 
-  Droplets, 
-  Eye, 
-  Gauge, 
+import { formatTemp, formatTime, getWindDirection, getUVIndexLevel, formatWindSpeed } from '@/utils/weatherUtils';
+import {
+  Sunrise,
+  Sunset,
+  Wind,
+  Droplets,
+  Eye,
+  Gauge,
   Thermometer,
   Sun,
-  CloudRain
+  CloudRain,
+  Cloud,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WeatherDetailsProps {
   current: CurrentWeather;
-  daily: DailyWeather;
+  daily?: DailyWeather;
   unit: TemperatureUnit;
   timezoneOffset: number;
 }
@@ -23,9 +24,14 @@ interface WeatherDetailsProps {
 export const WeatherDetails = ({
   current,
   daily,
+  unit,
   timezoneOffset,
 }: WeatherDetailsProps) => {
-  const uvInfo = getUVIndexLevel(current.uvi);
+  const uvInfo = getUVIndexLevel(current.uvi ?? 0);
+  const pop = daily?.pop ?? 0;
+  const rain = current.rain_1h ?? 0;
+  const precipLabel = rain > 0 ? `${rain.toFixed(1)} mm/h` : `${Math.round(pop * 100)}%`;
+  const precipSubtitle = rain > 0 ? 'Falling now' : 'Chance today';
 
   return (
     <div className="w-full animate-fade-up" style={{ animationDelay: '0.3s' }}>
@@ -34,38 +40,33 @@ export const WeatherDetails = ({
       </h2>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {/* UV Index */}
         <DetailCard
           icon={<Sun className="w-5 h-5" />}
           title="UV Index"
-          value={current.uvi.toString()}
-          subtitle={uvInfo.level}
+          value={Math.round(current.uvi ?? 0).toString()}
+          subtitle={`${uvInfo.level} (est.)`}
           valueClassName={uvInfo.color}
         />
 
-        {/* Sunrise */}
         <DetailCard
           icon={<Sunrise className="w-5 h-5 text-orange-300" />}
           title="Sunrise"
-          value={formatTime(current.sunrise, timezoneOffset)}
+          value={current.sunrise ? formatTime(current.sunrise, timezoneOffset) : '—'}
         />
 
-        {/* Sunset */}
         <DetailCard
           icon={<Sunset className="w-5 h-5 text-orange-400" />}
           title="Sunset"
-          value={formatTime(current.sunset, timezoneOffset)}
+          value={current.sunset ? formatTime(current.sunset, timezoneOffset) : '—'}
         />
 
-        {/* Wind */}
         <DetailCard
           icon={<Wind className="w-5 h-5" />}
           title="Wind"
-          value={`${Math.round(current.wind_speed * 3.6)} km/h`}
-          subtitle={getWindDirection(current.wind_deg)}
+          value={formatWindSpeed(current.wind_speed, unit)}
+          subtitle={getWindDirection(current.wind_deg ?? 0)}
         />
 
-        {/* Humidity */}
         <DetailCard
           icon={<Droplets className="w-5 h-5 text-blue-300" />}
           title="Humidity"
@@ -73,21 +74,18 @@ export const WeatherDetails = ({
           subtitle={current.humidity > 70 ? 'High' : current.humidity < 30 ? 'Low' : 'Normal'}
         />
 
-        {/* Feels Like */}
         <DetailCard
           icon={<Thermometer className="w-5 h-5 text-red-300" />}
           title="Feels Like"
-          value={`${Math.round(current.feels_like)}°`}
+          value={formatTemp(current.feels_like, unit)}
         />
 
-        {/* Visibility */}
         <DetailCard
           icon={<Eye className="w-5 h-5" />}
           title="Visibility"
-          value={`${(current.visibility / 1000).toFixed(1)} km`}
+          value={`${((current.visibility ?? 0) / 1000).toFixed(1)} km`}
         />
 
-        {/* Pressure */}
         <DetailCard
           icon={<Gauge className="w-5 h-5" />}
           title="Pressure"
@@ -95,12 +93,17 @@ export const WeatherDetails = ({
           subtitle="hPa"
         />
 
-        {/* Precipitation */}
         <DetailCard
           icon={<CloudRain className="w-5 h-5 text-blue-300" />}
           title="Precipitation"
-          value={`${Math.round(daily.pop * 100)}%`}
-          subtitle="Chance today"
+          value={precipLabel}
+          subtitle={precipSubtitle}
+        />
+
+        <DetailCard
+          icon={<Cloud className="w-5 h-5" />}
+          title="Cloud cover"
+          value={`${current.clouds ?? 0}%`}
         />
       </div>
     </div>
@@ -117,16 +120,16 @@ interface DetailCardProps {
 
 const DetailCard = ({ icon, title, value, subtitle, valueClassName }: DetailCardProps) => (
   <div className="glass-card rounded-xl p-4 flex flex-col gap-2">
-    <div className="flex items-center gap-2 text-white/70">
+    <div className="flex items-center gap-2 text-white/80">
       {icon}
       <span className="text-sm">{title}</span>
     </div>
-    <div className="flex items-baseline gap-1">
+    <div className="flex items-baseline gap-1 flex-wrap">
       <span className={cn("text-2xl font-semibold text-white", valueClassName)}>
         {value}
       </span>
       {subtitle && (
-        <span className="text-white/60 text-sm">{subtitle}</span>
+        <span className="text-white/70 text-sm">{subtitle}</span>
       )}
     </div>
   </div>

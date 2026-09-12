@@ -14,7 +14,7 @@ import { WeatherCondition } from '@/types/weather';
 import { cn } from '@/lib/utils';
 
 interface WeatherIconProps {
-  condition: WeatherCondition;
+  condition?: WeatherCondition;
   isNight?: boolean;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
@@ -35,6 +35,10 @@ export const WeatherIcon = ({
   className,
   animated = false,
 }: WeatherIconProps) => {
+  if (!condition) {
+    return <Cloud className={cn(sizeClasses[size], 'text-white drop-shadow-lg', className)} />;
+  }
+
   const main = condition.main.toLowerCase();
   const id = condition.id;
   

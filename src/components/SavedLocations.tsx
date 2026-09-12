@@ -6,6 +6,7 @@ interface SavedLocationsProps {
   locations: SavedLocation[];
   onSelect: (location: Location) => void;
   onRemove: (id: string) => void;
+  onToggleFavorite?: (location: Location) => void;
   currentLocationId?: string;
 }
 
@@ -13,6 +14,7 @@ export const SavedLocations = ({
   locations,
   onSelect,
   onRemove,
+  onToggleFavorite,
   currentLocationId,
 }: SavedLocationsProps) => {
   if (locations.length === 0) return null;
@@ -36,6 +38,7 @@ export const SavedLocations = ({
                 isActive={location.id === currentLocationId}
                 onSelect={onSelect}
                 onRemove={onRemove}
+                onToggleFavorite={onToggleFavorite}
               />
             ))}
           </div>
@@ -55,6 +58,7 @@ export const SavedLocations = ({
                 isActive={location.id === currentLocationId}
                 onSelect={onSelect}
                 onRemove={onRemove}
+                onToggleFavorite={onToggleFavorite}
               />
             ))}
           </div>
@@ -69,9 +73,10 @@ interface LocationChipProps {
   isActive: boolean;
   onSelect: (location: Location) => void;
   onRemove: (id: string) => void;
+  onToggleFavorite?: (location: Location) => void;
 }
 
-const LocationChip = ({ location, isActive, onSelect, onRemove }: LocationChipProps) => (
+const LocationChip = ({ location, isActive, onSelect, onRemove, onToggleFavorite }: LocationChipProps) => (
   <div
     className={cn(
       'glass-card rounded-full flex items-center gap-2 pl-3 pr-1 py-1.5 group transition-all',
@@ -79,21 +84,37 @@ const LocationChip = ({ location, isActive, onSelect, onRemove }: LocationChipPr
     )}
   >
     <button
+      type="button"
       onClick={() => onSelect(location)}
       className="flex items-center gap-2 text-white hover:text-white/80 transition-colors"
     >
       <MapPin className="w-3 h-3" />
       <span className="text-sm font-medium">{location.name}</span>
-      <span className="text-white/50 text-xs">{location.country}</span>
+      <span className="text-white/70 text-xs">{location.country}</span>
     </button>
+    {onToggleFavorite && (
+      <button
+        type="button"
+        aria-label={location.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite(location);
+        }}
+        className="p-1 rounded-full hover:bg-white/20"
+      >
+        <Star className={cn('w-3 h-3', location.isFavorite ? 'fill-yellow-300 text-yellow-300' : 'text-white/50')} />
+      </button>
+    )}
     <button
+      type="button"
+      aria-label={`Remove ${location.name}`}
       onClick={(e) => {
         e.stopPropagation();
         onRemove(location.id);
       }}
       className="p-1 rounded-full hover:bg-white/20 opacity-0 group-hover:opacity-100 transition-all"
     >
-      <X className="w-3 h-3 text-white/60" />
+      <X className="w-3 h-3 text-white/70" />
     </button>
   </div>
 );

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TemperatureUnit, Location } from '@/types/weather';
-import { getWeatherType, getGradientClass, isNightTime, generateLocationId } from '@/utils/weatherUtils';
+import { getWeatherType, getGradientClass, isNightTime, generateLocationId, formatRelativeTime } from '@/utils/weatherUtils';
 import { useWeather } from '@/hooks/useWeather';
 import { SearchBar } from './SearchBar';
 import { CurrentWeather } from './CurrentWeather';
@@ -13,105 +13,114 @@ import { ErrorState } from './ErrorState';
 import { SavedLocations } from './SavedLocations';
 import { WeatherAlerts } from './WeatherAlerts';
 import { cn } from '@/lib/utils';
+import { RefreshCw } from 'lucide-react';
+
+const DEFAULT_LOCATION: Location = {
+  name: 'New York',
+  lat: 40.7128,
+  lon: -74.006,
+  country: 'US',
+  state: 'New York',
+};
 
 export const WeatherApp = () => {
   const [unit, setUnit] = useState<TemperatureUnit>(() => {
     const saved = localStorage.getItem('weather-unit');
     return (saved as TemperatureUnit) || 'celsius';
   });
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
 
   const {
     weatherData,
     location,
     isLoading,
+    isRefreshing,
     error,
+    lastUpdated,
     searchLocations,
     fetchWeather,
     setLocation,
     savedLocations,
+    toggleFavorite,
     removeLocation,
     reverseGeocode,
   } = useWeather();
 
-  // Determine background gradient based on weather
   const getBackgroundClass = useCallback(() => {
     if (!weatherData) return 'weather-gradient-sunny';
-    
+
     const isNight = isNightTime(
       weatherData.current.dt,
       weatherData.current.sunrise,
-      weatherData.current.sunset
+      weatherData.current.sunset,
+      weatherData.timezone_offset
     );
-    
+
     const weatherType = getWeatherType(weatherData.current.weather[0], isNight);
     return getGradientClass(weatherType);
   }, [weatherData]);
 
-  // Save unit preference
   useEffect(() => {
     localStorage.setItem('weather-unit', unit);
   }, [unit]);
 
-  // Initial load - try geolocation or default location
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
+
+  const applyCoords = useCallback(async (latitude: number, longitude: number) => {
+    const loc = await reverseGeocode(latitude, longitude);
+    const resolved = loc ?? {
+      name: 'Current Location',
+      lat: latitude,
+      lon: longitude,
+      country: '',
+    };
+    setLocation(resolved);
+    await fetchWeather(latitude, longitude, { force: true });
+  }, [reverseGeocode, setLocation, fetchWeather]);
+
   useEffect(() => {
     const loadInitialWeather = async () => {
-      // Check for saved locations first
       const saved = localStorage.getItem('weather-locations');
       if (saved) {
-        const locations = JSON.parse(saved);
-        if (locations.length > 0) {
-          const lastLocation = locations[0];
-          setLocation(lastLocation);
-          fetchWeather(lastLocation.lat, lastLocation.lon);
-          return;
+        try {
+          const locations = JSON.parse(saved) as Location[];
+          if (locations.length > 0) {
+            const lastLocation = [...locations].sort(
+              (a, b) => ((b as { lastAccessed?: number }).lastAccessed || 0) - ((a as { lastAccessed?: number }).lastAccessed || 0)
+            )[0];
+            setLocation(lastLocation);
+            fetchWeather(lastLocation.lat, lastLocation.lon);
+            return;
+          }
+        } catch {
+          localStorage.removeItem('weather-locations');
         }
       }
 
-      // Try geolocation
       if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            const { latitude, longitude } = position.coords;
-            
-            // Reverse geocode to get location name
-            const loc = await reverseGeocode(latitude, longitude);
-            if (loc) {
-              setLocation(loc);
-            } else {
-              setLocation({
-                name: 'Current Location',
-                lat: latitude,
-                lon: longitude,
-                country: '',
-              });
-            }
-            
-            fetchWeather(latitude, longitude);
+            await applyCoords(position.coords.latitude, position.coords.longitude);
           },
-          () => {
-            // Geolocation denied or error, use default
-            const defaultLocation: Location = {
-              name: 'New York',
-              lat: 40.7128,
-              lon: -74.006,
-              country: 'US',
-              state: 'New York',
-            };
-            setLocation(defaultLocation);
-            fetchWeather(defaultLocation.lat, defaultLocation.lon);
-          }
+          (err) => {
+            if (err.code === err.PERMISSION_DENIED) {
+              setGeoError('Location access is off. Search for a city, or allow location and tap the compass.');
+            } else {
+              setGeoError('Could not read your location. Showing New York instead.');
+            }
+            setLocation(DEFAULT_LOCATION);
+            fetchWeather(DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lon);
+          },
+          { timeout: 8000 }
         );
       } else {
-        // No geolocation, use default
-        const defaultLocation: Location = {
-          name: 'New York',
-          lat: 40.7128,
-          lon: -74.006,
-          country: 'US',
-          state: 'New York',
-        };
-        setLocation(defaultLocation);
-        fetchWeather(defaultLocation.lat, defaultLocation.lon);
+        setGeoError('This browser cannot share location. Search for a city instead.');
+        setLocation(DEFAULT_LOCATION);
+        fetchWeather(DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lon);
       }
     };
 
@@ -119,42 +128,41 @@ export const WeatherApp = () => {
   }, []);
 
   const handleLocationSelect = useCallback((loc: Location) => {
+    setGeoError(null);
     setLocation(loc);
-    fetchWeather(loc.lat, loc.lon);
+    fetchWeather(loc.lat, loc.lon, { force: true });
   }, [setLocation, fetchWeather]);
 
   const handleGeolocation = useCallback(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          
-          const loc = await reverseGeocode(latitude, longitude);
-          if (loc) {
-            setLocation(loc);
-          } else {
-            setLocation({
-              name: 'Current Location',
-              lat: latitude,
-              lon: longitude,
-              country: '',
-            });
-          }
-          
-          fetchWeather(latitude, longitude);
-        },
-        (err) => {
-          console.error('Geolocation error:', err);
-        }
-      );
+    if (!('geolocation' in navigator)) {
+      setGeoError('This browser cannot share location.');
+      return;
     }
-  }, [setLocation, fetchWeather, reverseGeocode]);
+
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        await applyCoords(position.coords.latitude, position.coords.longitude);
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          setGeoError('Location permission denied. Enable it in the browser, then try again.');
+        } else {
+          setGeoError('Could not get your location. Try searching for a city.');
+        }
+      },
+      { timeout: 8000 }
+    );
+  }, [applyCoords]);
 
   const handleRetry = useCallback(() => {
     if (location) {
-      fetchWeather(location.lat, location.lon);
+      fetchWeather(location.lat, location.lon, { force: true });
     }
   }, [location, fetchWeather]);
+
+  const currentId = location ? generateLocationId(location) : undefined;
+  const isFavorite = savedLocations.some((l) => l.id === currentId && l.isFavorite);
 
   return (
     <div
@@ -164,40 +172,62 @@ export const WeatherApp = () => {
       )}
     >
       <div className="container max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Header */}
         <header className="flex flex-col md:flex-row items-center justify-between gap-4">
           <SearchBar
             onLocationSelect={handleLocationSelect}
             searchLocations={searchLocations}
             onGeolocation={handleGeolocation}
-            isLoading={isLoading}
+            isLoading={isLoading || isRefreshing}
+            geoError={geoError}
           />
-          <TemperatureToggle unit={unit} onChange={setUnit} />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRetry}
+              disabled={!location || isLoading || isRefreshing}
+              className="glass-card p-2.5 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50"
+              aria-label="Refresh weather"
+              title="Refresh"
+            >
+              <RefreshCw className={cn('w-4 h-4 text-white', isRefreshing && 'animate-spin')} />
+            </button>
+            <TemperatureToggle unit={unit} onChange={setUnit} />
+          </div>
         </header>
 
-        {/* Content */}
         {isLoading && !weatherData ? (
           <LoadingState />
-        ) : error ? (
+        ) : error && !weatherData ? (
           <ErrorState message={error} onRetry={handleRetry} />
         ) : weatherData && location ? (
           <main className="space-y-8">
-            {/* Weather Alerts */}
+            {error && (
+              <p className="text-sm text-amber-100 bg-black/25 rounded-lg px-3 py-2">
+                Latest refresh failed: {error}
+              </p>
+            )}
+
+            {lastUpdated && (
+              <p className="text-white/70 text-xs text-center md:text-right -mb-4" data-tick={nowTick}>
+                Updated {formatRelativeTime(lastUpdated)}
+              </p>
+            )}
+
             <WeatherAlerts
               current={weatherData.current}
               daily={weatherData.daily}
               unit={unit}
             />
 
-            {/* Current Weather */}
             <CurrentWeather
               weather={weatherData.current}
               location={location}
               unit={unit}
               timezoneOffset={weatherData.timezone_offset}
+              isFavorite={isFavorite}
+              onToggleFavorite={() => toggleFavorite(location)}
             />
 
-            {/* Hourly Forecast */}
             <HourlyForecast
               hourly={weatherData.hourly}
               current={weatherData.current}
@@ -205,13 +235,12 @@ export const WeatherApp = () => {
               timezoneOffset={weatherData.timezone_offset}
             />
 
-            {/* Daily Forecast */}
             <DailyForecast
               daily={weatherData.daily}
               unit={unit}
+              timezoneOffset={weatherData.timezone_offset}
             />
 
-            {/* Weather Details */}
             <WeatherDetails
               current={weatherData.current}
               daily={weatherData.daily[0]}
@@ -219,12 +248,12 @@ export const WeatherApp = () => {
               timezoneOffset={weatherData.timezone_offset}
             />
 
-            {/* Saved Locations */}
             <SavedLocations
               locations={savedLocations}
               onSelect={handleLocationSelect}
               onRemove={removeLocation}
-              currentLocationId={location ? generateLocationId(location) : undefined}
+              onToggleFavorite={toggleFavorite}
+              currentLocationId={currentId}
             />
           </main>
         ) : null}

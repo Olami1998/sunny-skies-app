@@ -60,16 +60,23 @@ export const formatTime = (
   });
 };
 
-export const formatDay = (timestamp: number): string => {
-  const date = new Date(timestamp * 1000);
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+export const formatDay = (timestamp: number, timezoneOffset = 0): string => {
+  const localMs = (timestamp + timezoneOffset) * 1000;
+  const date = new Date(localMs);
+  const now = new Date((Date.now() / 1000 + timezoneOffset) * 1000);
 
-  if (date.toDateString() === today.toDateString()) return 'Today';
-  if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+  const dateKey = date.toISOString().slice(0, 10);
+  const todayKey = now.toISOString().slice(0, 10);
+  const tomorrow = new Date(now.getTime() + 86400000);
+  const tomorrowKey = tomorrow.toISOString().slice(0, 10);
 
-  return date.toLocaleDateString('en-US', { weekday: 'short' });
+  if (dateKey === todayKey) return 'Today';
+  if (dateKey === tomorrowKey) return 'Tomorrow';
+
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    timeZone: 'UTC',
+  });
 };
 
 export const formatFullDate = (timestamp: number): string => {
@@ -82,8 +89,9 @@ export const formatFullDate = (timestamp: number): string => {
 };
 
 export const getWindDirection = (degrees: number): string => {
+  if (!Number.isFinite(degrees)) return '—';
   const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  const index = Math.round(degrees / 45) % 8;
+  const index = Math.round((((degrees % 360) + 360) % 360) / 45) % 8;
   return directions[index];
 };
 
@@ -98,9 +106,34 @@ export const getUVIndexLevel = (uvi: number): { level: string; color: string } =
 export const isNightTime = (
   currentTime: number,
   sunrise: number,
-  sunset: number
+  sunset: number,
+  timezoneOffset = 0
 ): boolean => {
-  return currentTime < sunrise || currentTime > sunset;
+  if (sunrise && sunset) {
+    return currentTime < sunrise || currentTime > sunset;
+  }
+
+  const hour = new Date((currentTime + timezoneOffset) * 1000).getUTCHours();
+  return hour < 6 || hour >= 18;
+};
+
+export const formatWindSpeed = (
+  metersPerSecond: number,
+  unit: TemperatureUnit
+): string => {
+  if (unit === 'fahrenheit') {
+    return `${Math.round(metersPerSecond * 2.237)} mph`;
+  }
+  return `${Math.round(metersPerSecond * 3.6)} km/h`;
+};
+
+export const formatRelativeTime = (timestampMs: number): string => {
+  const seconds = Math.round((Date.now() - timestampMs) / 1000);
+  if (seconds < 15) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.round(minutes / 60)}h ago`;
 };
 
 export const generateLocationId = (location: { name: string; lat: number; lon: number }): string => {

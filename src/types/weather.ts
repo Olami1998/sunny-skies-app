@@ -19,6 +19,8 @@ export interface CurrentWeather {
   sunrise: number;
   sunset: number;
   dt: number;
+  rain_1h?: number;
+  snow_1h?: number;
 }
 
 export interface HourlyWeather {

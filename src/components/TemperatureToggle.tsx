@@ -11,22 +11,26 @@ export const TemperatureToggle = ({ unit, onChange }: TemperatureToggleProps) =>
     <div className="glass-card rounded-full p-1 flex gap-1">
       <button
         onClick={() => onChange('celsius')}
+        type="button"
+        aria-pressed={unit === 'celsius'}
         className={cn(
           'px-3 py-1.5 rounded-full text-sm font-medium transition-all',
           unit === 'celsius'
             ? 'bg-white/30 text-white'
-            : 'text-white/60 hover:text-white hover:bg-white/10'
+            : 'text-white/70 hover:text-white hover:bg-white/10'
         )}
       >
         °C
       </button>
       <button
         onClick={() => onChange('fahrenheit')}
+        type="button"
+        aria-pressed={unit === 'fahrenheit'}
         className={cn(
           'px-3 py-1.5 rounded-full text-sm font-medium transition-all',
           unit === 'fahrenheit'
             ? 'bg-white/30 text-white'
-            : 'text-white/60 hover:text-white hover:bg-white/10'
+            : 'text-white/70 hover:text-white hover:bg-white/10'
         )}
       >
         °F

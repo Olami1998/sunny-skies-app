@@ -30,24 +30,30 @@ export const HourlyForecast = ({
     }
   };
 
-  // Take next 24 hours
-  const next24Hours = hourly.slice(0, 24);
+  const upcoming = hourly.slice(0, 16);
 
   return (
     <div className="w-full animate-fade-up" style={{ animationDelay: '0.1s' }}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-display font-semibold text-white">
-          Hourly Forecast
-        </h2>
+        <div>
+          <h2 className="text-lg font-display font-semibold text-white">
+            Upcoming
+          </h2>
+          <p className="text-white/70 text-xs mt-0.5">3-hour steps from the forecast</p>
+        </div>
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => scroll('left')}
+            aria-label="Scroll forecast left"
             className="p-2 glass-card rounded-full hover:bg-white/20 transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-white" />
           </button>
           <button
+            type="button"
             onClick={() => scroll('right')}
+            aria-label="Scroll forecast right"
             className="p-2 glass-card rounded-full hover:bg-white/20 transition-colors"
           >
             <ChevronRight className="w-4 h-4 text-white" />
@@ -59,10 +65,11 @@ export const HourlyForecast = ({
         ref={scrollRef}
         className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 -mx-1 px-1"
       >
-        {next24Hours.map((hour, index) => {
-          const isNight = isNightTime(hour.dt, current.sunrise, current.sunset);
+        {upcoming.map((hour, index) => {
+          const isNight = isNightTime(hour.dt, current.sunrise, current.sunset, timezoneOffset);
           const isNow = index === 0;
-          
+          const pop = hour.pop ?? 0;
+
           return (
             <div
               key={hour.dt}
@@ -72,23 +79,23 @@ export const HourlyForecast = ({
               )}
             >
               <span className="text-white/80 text-sm font-medium">
-                {isNow ? 'Now' : formatTime(hour.dt, timezoneOffset)}
+                {isNow ? 'Next' : formatTime(hour.dt, timezoneOffset)}
               </span>
-              
+
               <WeatherIcon
                 condition={hour.weather[0]}
                 isNight={isNight}
                 size="sm"
               />
-              
+
               <span className="text-white font-semibold text-lg">
                 {formatTemp(hour.temp, unit)}
               </span>
-              
-              {hour.pop > 0 && (
+
+              {pop > 0 && (
                 <div className="flex items-center gap-1 text-blue-200">
                   <Droplets className="w-3 h-3" />
-                  <span className="text-xs">{Math.round(hour.pop * 100)}%</span>
+                  <span className="text-xs">{Math.round(pop * 100)}%</span>
                 </div>
               )}
             </div>
