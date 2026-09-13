@@ -21,15 +21,27 @@ interface UseWeatherReturn {
 const CACHE_DURATION = 10 * 60 * 1000;
 const weatherCache = new Map<string, { data: WeatherData; timestamp: number }>();
 
+function weatherConfig(): { url: string; key: string } {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      'Weather API is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY, then redeploy.'
+    );
+  }
+  return { url, key };
+}
+
 function weatherFunctionUrl(params: Record<string, string>): string {
-  const base = import.meta.env.VITE_SUPABASE_URL;
   const query = new URLSearchParams(params);
-  return `${base}/functions/v1/weather?${query.toString()}`;
+  return `${weatherConfig().url}/functions/v1/weather?${query.toString()}`;
 }
 
 function authHeaders(): HeadersInit {
+  const { key } = weatherConfig();
   return {
-    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    Authorization: `Bearer ${key}`,
+    apikey: key,
   };
 }
 
