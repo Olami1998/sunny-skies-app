@@ -45,6 +45,31 @@ function authHeaders(): HeadersInit {
   };
 }
 
+function readSavedLocations(): SavedLocation[] {
+  try {
+    const saved = localStorage.getItem('weather-locations');
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    try {
+      localStorage.removeItem('weather-locations');
+    } catch {
+      /* ignore */
+    }
+    return [];
+  }
+}
+
+function persistLocations(next: SavedLocation[]) {
+  try {
+    localStorage.setItem('weather-locations', JSON.stringify(next));
+  } catch (err) {
+    console.error('Could not save locations', err);
+  }
+  return next;
+}
+
 export const useWeather = (): UseWeatherReturn => {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [location, setLocationState] = useState<Location | null>(null);
@@ -52,18 +77,12 @@ export const useWeather = (): UseWeatherReturn => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
-  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>(() => {
-    const saved = localStorage.getItem('weather-locations');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>(readSavedLocations);
 
   const weatherDataRef = useRef<WeatherData | null>(null);
   weatherDataRef.current = weatherData;
-
-  const persistLocations = (next: SavedLocation[]) => {
-    localStorage.setItem('weather-locations', JSON.stringify(next));
-    return next;
-  };
+  const weatherRequestRef = useRef(0);
+  const weatherAbortRef = useRef<AbortController | null>(null);
 
   const searchLocations = useCallback(async (query: string): Promise<Location[]> => {
     if (!query.trim() || query.length < 2) return [];
@@ -128,15 +147,25 @@ export const useWeather = (): UseWeatherReturn => {
   }, []);
 
   const fetchWeather = useCallback(async (lat: number, lon: number, options?: { force?: boolean }): Promise<void> => {
-    const cacheKey = `${lat.toFixed(2)}-${lon.toFixed(2)}`;
+    const cacheKey = `${lat.toFixed(4)}-${lon.toFixed(4)}`;
     const cached = weatherCache.get(cacheKey);
 
     if (!options?.force && cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      weatherAbortRef.current?.abort();
+      weatherRequestRef.current += 1;
       setWeatherData(cached.data);
       setLastUpdated(cached.timestamp);
       setError(null);
+      setIsLoading(false);
+      setIsRefreshing(false);
       return;
     }
+
+    weatherAbortRef.current?.abort();
+    const controller = new AbortController();
+    weatherAbortRef.current = controller;
+    const requestId = weatherRequestRef.current + 1;
+    weatherRequestRef.current = requestId;
 
     const hasExisting = Boolean(weatherDataRef.current);
     if (hasExisting) {
@@ -153,7 +182,7 @@ export const useWeather = (): UseWeatherReturn => {
           lat: String(lat),
           lon: String(lon),
         }),
-        { headers: authHeaders() }
+        { headers: authHeaders(), signal: controller.signal }
       );
 
       if (!response.ok) {
@@ -162,16 +191,21 @@ export const useWeather = (): UseWeatherReturn => {
       }
 
       const data: WeatherData = await response.json();
+      if (requestId !== weatherRequestRef.current) return;
+
       const timestamp = Date.now();
       weatherCache.set(cacheKey, { data, timestamp });
       setWeatherData(data);
       setLastUpdated(timestamp);
     } catch (err) {
+      if (controller.signal.aborted || requestId !== weatherRequestRef.current) return;
       console.error('Fetch weather error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (requestId === weatherRequestRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, []);
 

@@ -57,7 +57,7 @@ export interface DailyWeather {
 export interface WeatherData {
   lat: number;
   lon: number;
-  timezone: string;
+  timezone: number;
   timezone_offset: number;
   current: CurrentWeather;
   hourly: HourlyWeather[];

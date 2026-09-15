@@ -1,5 +1,5 @@
 import { CurrentWeather as CurrentWeatherType, Location, TemperatureUnit } from '@/types/weather';
-import { formatTemp, formatTime, formatWindSpeed, isNightTime } from '@/utils/weatherUtils';
+import { formatTemp, formatTime, formatWindSpeed, formatVisibility, isNightTime } from '@/utils/weatherUtils';
 import { WeatherIcon } from './WeatherIcon';
 import { MapPin, Droplets, Wind, Eye, Gauge, Star } from 'lucide-react';
 
@@ -52,7 +52,7 @@ export const CurrentWeather = ({
 
       <div className="flex flex-col items-center mb-8">
         <WeatherIcon
-          condition={weather.weather[0]}
+          condition={weather.weather?.[0]}
           isNight={isNight}
           size="xl"
           animated
@@ -65,7 +65,7 @@ export const CurrentWeather = ({
         </div>
 
         <p className="text-xl text-white/90 capitalize mt-2 font-medium">
-          {weather.weather[0].description}
+          {weather.weather?.[0]?.description ?? '—'}
         </p>
 
         <p className="text-white/80 mt-1">
@@ -87,7 +87,7 @@ export const CurrentWeather = ({
         <QuickStat
           icon={<Eye className="w-5 h-5" />}
           label="Visibility"
-          value={`${(weather.visibility / 1000).toFixed(1)} km`}
+          value={formatVisibility(weather.visibility, unit)}
         />
         <QuickStat
           icon={<Gauge className="w-5 h-5" />}

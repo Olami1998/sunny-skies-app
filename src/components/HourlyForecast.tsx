@@ -83,7 +83,7 @@ export const HourlyForecast = ({
               </span>
 
               <WeatherIcon
-                condition={hour.weather[0]}
+                condition={hour.weather?.[0]}
                 isNight={isNight}
                 size="sm"
               />

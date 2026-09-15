@@ -25,10 +25,15 @@ const DEFAULT_LOCATION: Location = {
 
 export const WeatherApp = () => {
   const [unit, setUnit] = useState<TemperatureUnit>(() => {
-    const saved = localStorage.getItem('weather-unit');
-    return (saved as TemperatureUnit) || 'celsius';
+    try {
+      const saved = localStorage.getItem('weather-unit');
+      return saved === 'fahrenheit' ? 'fahrenheit' : 'celsius';
+    } catch {
+      return 'celsius';
+    }
   });
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
   const [nowTick, setNowTick] = useState(Date.now());
 
   const {
@@ -57,12 +62,16 @@ export const WeatherApp = () => {
       weatherData.timezone_offset
     );
 
-    const weatherType = getWeatherType(weatherData.current.weather[0], isNight);
+    const weatherType = getWeatherType(weatherData.current.weather?.[0], isNight);
     return getGradientClass(weatherType);
   }, [weatherData]);
 
   useEffect(() => {
-    localStorage.setItem('weather-unit', unit);
+    try {
+      localStorage.setItem('weather-unit', unit);
+    } catch {
+      /* private mode / quota */
+    }
   }, [unit]);
 
   useEffect(() => {
@@ -102,11 +111,14 @@ export const WeatherApp = () => {
       }
 
       if ('geolocation' in navigator) {
+        setIsLocating(true);
         navigator.geolocation.getCurrentPosition(
           async (position) => {
+            setIsLocating(false);
             await applyCoords(position.coords.latitude, position.coords.longitude);
           },
           (err) => {
+            setIsLocating(false);
             if (err.code === err.PERMISSION_DENIED) {
               setGeoError('Location access is off. Search for a city, or allow location and tap the compass.');
             } else {
@@ -140,11 +152,14 @@ export const WeatherApp = () => {
     }
 
     setGeoError(null);
+    setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        setIsLocating(false);
         await applyCoords(position.coords.latitude, position.coords.longitude);
       },
       (err) => {
+        setIsLocating(false);
         if (err.code === err.PERMISSION_DENIED) {
           setGeoError('Location permission denied. Enable it in the browser, then try again.');
         } else {
@@ -177,7 +192,7 @@ export const WeatherApp = () => {
             onLocationSelect={handleLocationSelect}
             searchLocations={searchLocations}
             onGeolocation={handleGeolocation}
-            isLoading={isLoading || isRefreshing}
+            isLoading={isLoading || isRefreshing || isLocating}
             geoError={geoError}
           />
           <div className="flex items-center gap-2">
@@ -195,7 +210,7 @@ export const WeatherApp = () => {
           </div>
         </header>
 
-        {isLoading && !weatherData ? (
+        {(isLoading || isLocating) && !weatherData ? (
           <LoadingState />
         ) : error && !weatherData ? (
           <ErrorState message={error} onRetry={handleRetry} />

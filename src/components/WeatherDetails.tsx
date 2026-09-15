@@ -1,5 +1,5 @@
 import { CurrentWeather, DailyWeather, TemperatureUnit } from '@/types/weather';
-import { formatTemp, formatTime, getWindDirection, getUVIndexLevel, formatWindSpeed } from '@/utils/weatherUtils';
+import { formatTemp, formatTime, getWindDirection, getUVIndexLevel, formatWindSpeed, formatVisibility, formatDay } from '@/utils/weatherUtils';
 import {
   Sunrise,
   Sunset,
@@ -30,8 +30,13 @@ export const WeatherDetails = ({
   const uvInfo = getUVIndexLevel(current.uvi ?? 0);
   const pop = daily?.pop ?? 0;
   const rain = current.rain_1h ?? 0;
+  const dayLabel = daily ? formatDay(daily.dt, timezoneOffset) : 'Today';
   const precipLabel = rain > 0 ? `${rain.toFixed(1)} mm/h` : `${Math.round(pop * 100)}%`;
-  const precipSubtitle = rain > 0 ? 'Falling now' : 'Chance today';
+  const precipSubtitle = rain > 0
+    ? 'Falling now'
+    : dayLabel === 'Today'
+      ? 'Chance today'
+      : `Chance ${dayLabel.toLowerCase()}`;
 
   return (
     <div className="w-full animate-fade-up" style={{ animationDelay: '0.3s' }}>
@@ -83,7 +88,7 @@ export const WeatherDetails = ({
         <DetailCard
           icon={<Eye className="w-5 h-5" />}
           title="Visibility"
-          value={`${((current.visibility ?? 0) / 1000).toFixed(1)} km`}
+          value={formatVisibility(current.visibility ?? 0, unit)}
         />
 
         <DetailCard

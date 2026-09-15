@@ -26,19 +26,25 @@ export const SearchBar = ({
   const [noResults, setNoResults] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchGenRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = useCallback(async (value: string) => {
     if (value.length < 2) {
+      searchGenRef.current += 1;
       setSuggestions([]);
       setIsOpen(false);
       setNoResults(false);
+      setIsSearching(false);
       return;
     }
 
+    const gen = searchGenRef.current + 1;
+    searchGenRef.current = gen;
     setIsSearching(true);
     const results = await searchLocations(value);
+    if (gen !== searchGenRef.current) return;
     setSuggestions(results);
     setNoResults(results.length === 0);
     setIsOpen(true);
@@ -102,7 +108,11 @@ export const SearchBar = ({
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      searchGenRef.current += 1;
+    };
   }, []);
 
   return (

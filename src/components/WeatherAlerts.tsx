@@ -1,6 +1,6 @@
 import { AlertTriangle, Thermometer, Wind, CloudRain, Snowflake, Sun, Eye } from 'lucide-react';
 import { CurrentWeather, DailyWeather, TemperatureUnit } from '@/types/weather';
-import { convertTemp } from '@/utils/weatherUtils';
+import { convertTemp, formatWindSpeed } from '@/utils/weatherUtils';
 import { cn } from '@/lib/utils';
 
 export interface WeatherAlert {
@@ -83,7 +83,7 @@ export const generateAlerts = (
       type: 'high-wind',
       severity: windSpeedMs > 25 ? 'warning' : 'watch',
       title: 'High Wind Alert',
-      description: `Wind speeds of ${Math.round(windSpeedMs * 3.6)} km/h detected. Secure loose objects and use caution outdoors.`,
+      description: `Wind speeds of ${formatWindSpeed(windSpeedMs, unit)} detected. Secure loose objects and use caution outdoors.`,
       icon: <Wind className="w-5 h-5" />,
     });
   }
@@ -114,7 +114,7 @@ export const generateAlerts = (
 
   // Snow (weather ID 600-622)
   if (weatherId >= 600 && weatherId <= 622) {
-    const isHeavy = weatherId >= 615 || (weatherId >= 600 && weatherId <= 602 && weatherId !== 600);
+    const isHeavy = weatherId === 602 || weatherId === 622 || weatherId >= 620;
     alerts.push({
       id: 'snow',
       type: 'snow',
@@ -146,6 +146,18 @@ export const generateAlerts = (
       title: 'High UV Index Alert',
       description: `UV index of ${Math.round(uvi)} detected. Use sunscreen and limit sun exposure.`,
       icon: <Sun className="w-5 h-5" />,
+    });
+  }
+
+  const today = daily[0];
+  if (today && (today.pop ?? 0) >= 0.7 && !alerts.some((a) => a.type === 'heavy-rain' || a.type === 'storm')) {
+    alerts.push({
+      id: 'forecast-rain',
+      type: 'heavy-rain',
+      severity: 'advisory',
+      title: 'Rain likely',
+      description: `${Math.round(today.pop * 100)}% chance of precipitation in the forecast period.`,
+      icon: <CloudRain className="w-5 h-5" />,
     });
   }
 

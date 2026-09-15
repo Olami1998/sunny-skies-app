@@ -112,7 +112,7 @@ const LocationChip = ({ location, isActive, onSelect, onRemove, onToggleFavorite
         e.stopPropagation();
         onRemove(location.id);
       }}
-      className="p-1 rounded-full hover:bg-white/20 opacity-0 group-hover:opacity-100 transition-all"
+      className="p-1 rounded-full hover:bg-white/20 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
     >
       <X className="w-3 h-3 text-white/70" />
     </button>

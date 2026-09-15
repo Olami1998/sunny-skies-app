@@ -1,16 +1,18 @@
 import { WeatherCondition, WeatherType, TemperatureUnit } from '@/types/weather';
 
 export const getWeatherType = (
-  condition: WeatherCondition,
+  condition: WeatherCondition | undefined,
   isNight: boolean
 ): WeatherType => {
+  if (!condition) return isNight ? 'night' : 'sunny';
   const main = condition.main.toLowerCase();
   const id = condition.id;
 
   if (isNight && main === 'clear') return 'night';
-  if (main === 'thunderstorm' || id >= 200 && id < 300) return 'storm';
-  if (main === 'snow' || id >= 600 && id < 700) return 'snow';
-  if (main === 'rain' || main === 'drizzle' || id >= 300 && id < 600) return 'rainy';
+  if (main === 'thunderstorm' || (id >= 200 && id < 300)) return 'storm';
+  if (main === 'snow' || (id >= 600 && id < 700)) return 'snow';
+  if (main === 'rain' || main === 'drizzle' || (id >= 300 && id < 600)) return 'rainy';
+  if (id >= 700 && id < 800) return isNight ? 'night' : 'cloudy';
   if (main === 'clouds' && id >= 803) return 'cloudy';
   if (main === 'clouds') return isNight ? 'night' : 'cloudy';
   if (isNight) return 'night';
@@ -103,17 +105,26 @@ export const getUVIndexLevel = (uvi: number): { level: string; color: string } =
   return { level: 'Extreme', color: 'text-purple-400' };
 };
 
+const localSecondsOfDay = (unixSeconds: number, timezoneOffset: number): number => {
+  const local = unixSeconds + timezoneOffset;
+  return ((local % 86400) + 86400) % 86400;
+};
+
+/** True when `unixSeconds` falls outside the local sunrise–sunset window for that calendar day. */
 export const isNightTime = (
-  currentTime: number,
+  unixSeconds: number,
   sunrise: number,
   sunset: number,
   timezoneOffset = 0
 ): boolean => {
   if (sunrise && sunset) {
-    return currentTime < sunrise || currentTime > sunset;
+    const t = localSecondsOfDay(unixSeconds, timezoneOffset);
+    const rise = localSecondsOfDay(sunrise, timezoneOffset);
+    const set = localSecondsOfDay(sunset, timezoneOffset);
+    return t < rise || t >= set;
   }
 
-  const hour = new Date((currentTime + timezoneOffset) * 1000).getUTCHours();
+  const hour = new Date((unixSeconds + timezoneOffset) * 1000).getUTCHours();
   return hour < 6 || hour >= 18;
 };
 
@@ -125,6 +136,17 @@ export const formatWindSpeed = (
     return `${Math.round(metersPerSecond * 2.237)} mph`;
   }
   return `${Math.round(metersPerSecond * 3.6)} km/h`;
+};
+
+export const formatVisibility = (
+  meters: number,
+  unit: TemperatureUnit
+): string => {
+  if (unit === 'fahrenheit') {
+    const miles = meters / 1609.344;
+    return `${miles >= 10 ? Math.round(miles) : miles.toFixed(1)} mi`;
+  }
+  return `${(meters / 1000).toFixed(1)} km`;
 };
 
 export const formatRelativeTime = (timestampMs: number): string => {

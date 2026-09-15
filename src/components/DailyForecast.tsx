@@ -47,7 +47,7 @@ export const DailyForecast = ({ daily, unit, timezoneOffset }: DailyForecastProp
 
                 <div className="flex items-center gap-2 w-16 flex-shrink-0">
                   <WeatherIcon
-                    condition={day.weather[0]}
+                    condition={day.weather?.[0]}
                     size="sm"
                   />
                   {pop > 0.1 && (
